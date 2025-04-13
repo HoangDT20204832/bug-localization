@@ -42,9 +42,9 @@ def extract(i, br, bug_reports, java_src_dict):
 
         try:
             # Kiểm tra nếu file không tồn tại trong java_src_dict
-            if java_file not in java_src_dict:
-                print(f"Warning: File {java_file} not found in source code dictionary")
-                continue
+            # if java_file not in java_src_dict:
+            #     print(f"Warning: File {java_file} not found in source code dictionary")
+            #     continue
 
             # Source code của file Java
             src = java_src_dict[java_file]
