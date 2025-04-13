@@ -119,7 +119,7 @@ def dnn_model_kfold(k=10):
     Keyword Arguments:
         k {integer} -- the number of folds (default: {10})
     """
-    samples = csv2dict("../data/features.csv")
+    samples = csv2dict("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/featuresTomcat.csv")
 
     # These collections are speed up the process while calculating top-k accuracy
     sample_dict, bug_reports, br2files_dict = helper_collections(samples)

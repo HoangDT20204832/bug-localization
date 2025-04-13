@@ -151,7 +151,7 @@ def normalize(text):
     return stemmed_tokens
 
 
-def cosine_sim(text1, text2):
+def cosine_sim(text1, text2,N=1):
     """ Cosine similarity with tfidf
 
     Arguments:
@@ -161,8 +161,11 @@ def cosine_sim(text1, text2):
     vectorizer = TfidfVectorizer(tokenizer=normalize, min_df=1, stop_words="english")
     tfidf = vectorizer.fit_transform([text1, text2])
     sim = ((tfidf * tfidf.T).toarray())[0, 1]
-
-    return sim
+    # Đếm số từ trong text2 sau khi tokenize
+    num_terms = len(normalize(text2)) 
+    g_terms = 1 / (1 + np.exp(-N * num_terms))  
+    rVSM_score = g_terms * sim
+    return rVSM_score
 
 
 def get_all_source_code(start_dir):
@@ -176,7 +179,7 @@ def get_all_source_code(start_dir):
     for dir_, dir_names, file_names in os.walk(start_dir):
         for filename in [f for f in file_names if f.endswith(".java")]:
             src_name = os.path.join(dir_, filename)
-            with open(src_name, "r") as src_file:
+            with open(src_name, "r", encoding="latin-1") as src_file:
                 src = src_file.read()
 
             file_key = src_name.split(start_dir)[1]
@@ -307,7 +310,7 @@ def helper_collections(samples, only_rvsm=False):
 
         sample_dict[s["report_id"]].append(temp_dict)
 
-    bug_reports = tsv2dict("D:/Me-hi/20242/Phan_mem_use_LLM/test/bug-localization-by-dnn-and-rvsm/Data_bug/SWT.txt")
+    bug_reports = tsv2dict("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/bug reports/Tomcat.txt")
     br2files_dict = {}
 
     for bug_report in bug_reports:
@@ -354,7 +357,9 @@ def topk_accuarcy(test_bug_reports, sample_dict, br2files_dict, clf=None):
 
         # Top-1, top-2 ... top-20 accuracy
         for i in range(1, 21):
-            max_indices = np.argpartition(relevancy_list, -i)[-i:]
+            # max_indices = np.argpartition(relevancy_list, -i)[-i:]
+            i = min(i, len(relevancy_list))  # Đảm bảo i không vượt quá độ dài danh sách
+            max_indices = np.argsort(relevancy_list)[-i:]
             for corresponding_file in np.array(corresponding_files)[max_indices]:
                 if str(corresponding_file) in br2files_dict[bug_id]:
                     topk_counters[i - 1] += 1
@@ -362,7 +367,12 @@ def topk_accuarcy(test_bug_reports, sample_dict, br2files_dict, clf=None):
 
     acc_dict = {}
     for i, counter in enumerate(topk_counters):
-        acc = counter / (len(test_bug_reports) - negative_total)
+        denominator = len(test_bug_reports) - negative_total
+        if denominator == 0:
+          acc = 0  # hoặc bạn có thể raise warning
+        else:
+          acc = counter / denominator
+        # acc = counter / (len(test_bug_reports) - negative_total)
         acc_dict[i + 1] = round(acc, 3)
 
     return acc_dict

@@ -5,6 +5,11 @@ Used many modified and intact code blocks from
 'https://github.com/jeffrey-palmerino/BugLocalizationDNN'
 """
 
+import nltk
+# nltk.download('punkt_tab')
+nltk.download('punkt')
+# nltk.download('stopwords')
+
 from util import *
 from joblib import Parallel, delayed, cpu_count
 import csv
@@ -21,24 +26,31 @@ def extract(i, br, bug_reports, java_src_dict):
         bug_reports {list of dictionaries} -- All bug reports
         java_src_dict {dictionary} -- A dictionary of java source codes
     """
-    print("Bug report : {} / {}".format(i + 1, len(bug_reports)), end="\r")
+    print("Bug report : {} / {}".format(i + 1, len(bug_reports)), end="\r")  
 
     br_id = br["id"]
     br_date = br["report_time"]
     br_files = br["files"]
     br_raw_text = br["raw_text"]
+    # print(f"Files in bug report: {br_files}")  # In rõ các file liên quan đến báo lỗi
 
     features = []
 
     for java_file in br_files:
-        java_file = os.path.normpath(java_file)
+        java_file = os.path.normpath(java_file)  # Chuẩn hóa đường dẫn đến file
 
         try:
-            # Source code of the java file
+            # Kiểm tra nếu file không tồn tại trong java_src_dict
+            if java_file not in java_src_dict:
+                print(f"Warning: File {java_file} not found in source code dictionary")
+                continue
+
+            # Source code của file Java
             src = java_src_dict[java_file]
 
-            # rVSM Text Similarity
+            # Tính toán độ tương đồng cosine
             rvsm = cosine_sim(br_raw_text, src)
+            print(f"Cosine Similarity (rVSM) for {java_file}: {rvsm}")
 
             # Class Name Similarity
             cns = class_name_similarity(br_raw_text, src)
@@ -55,15 +67,16 @@ def extract(i, br, bug_reports, java_src_dict):
             # Bug Fixing Frequency
             bff = len(prev_reports)
 
-            features.append([br_id, java_file, rvsm, cfs, cns, bfr, bff, 1])
+            features.append([br_id, java_file, rvsm, 1])
 
             for java_file, rvsm, cns in top_k_wrong_files(
                 br_files, br_raw_text, java_src_dict
             ):
-                features.append([br_id, java_file, rvsm, cfs, cns, bfr, bff, 0])
+                features.append([br_id, java_file, rvsm, 0])
 
         except:
-            pass
+            # print(f"Error processing")
+            pass  # Tiếp tục với file tiếp theo nếu gặp lỗi
 
     return features
 
@@ -71,17 +84,13 @@ def extract(i, br, bug_reports, java_src_dict):
 def extract_features():
     """Clones the git repository and parallelizes the feature extraction process
     """
-    # Clone git repo to a local folder
-    git_clone(
-        repo_url="https://github.com/eclipse/eclipse.platform.ui.git",
-        clone_folder="../data/",
-    )
 
     # Read bug reports from tab separated file
-    bug_reports = tsv2dict("../data/Eclipse_Platform_UI.txt")
-
+    bug_reports = tsv2dict("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/bug reports/Tomcat.txt")
+    #print(bug_reports)
     # Read all java source files
-    java_src_dict = get_all_source_code("../data/eclipse.platform.ui/bundles/")
+    java_src_dict = get_all_source_code("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/source files/tomcat-7.0.51")
+    #print(java_src_dict)
 
     # Use all CPUs except one to speed up extraction and avoid computer lagging
     batches = Parallel(n_jobs=cpu_count() - 1)(
@@ -91,9 +100,10 @@ def extract_features():
 
     # Flatten features
     features = [row for batch in batches for row in batch]
+    #print(features)
 
     # Save features to a csv file
-    features_path = os.path.normpath("../data/features.csv")
+    features_path = os.path.normpath("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/featuresTomcat.csv")
     with open(features_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
@@ -101,10 +111,6 @@ def extract_features():
                 "report_id",
                 "file",
                 "rVSM_similarity",
-                "collab_filter",
-                "classname_similarity",
-                "bug_recency",
-                "bug_frequency",
                 "match",
             ]
         )
@@ -112,6 +118,4 @@ def extract_features():
             writer.writerow(row)
 
 
-# Keep time while extracting features
-with CodeTimer("Feature extraction"):
-    extract_features()
+extract_features()
