@@ -6,9 +6,9 @@ Used many modified and intact code blocks from
 """
 
 import nltk
-# nltk.download('punkt_tab')
-nltk.download('punkt')
-# nltk.download('stopwords')
+nltk.download('punkt_tab')
+# nltk.download('punkt')
+nltk.download('stopwords')
 
 from util import *
 from joblib import Parallel, delayed, cpu_count
@@ -32,12 +32,13 @@ def extract(i, br, bug_reports, java_src_dict):
     br_date = br["report_time"]
     br_files = br["files"]
     br_raw_text = br["raw_text"]
-    # print(f"Files in bug report: {br_files}")  # In rõ các file liên quan đến báo lỗi
+    print(f"Files in bug report: {br_files}")  # In rõ các file liên quan đến báo lỗi
 
     features = []
 
     for java_file in br_files:
-        java_file = os.path.normpath(java_file)  # Chuẩn hóa đường dẫn đến file
+        # java_file = os.path.normpath(java_file)  # Chuẩn hóa đường dẫn đến file
+        java_file = os.path.normpath(java_file).replace("\\", "/")
 
         try:
             # Kiểm tra nếu file không tồn tại trong java_src_dict
@@ -67,15 +68,24 @@ def extract(i, br, bug_reports, java_src_dict):
             # Bug Fixing Frequency
             bff = len(prev_reports)
 
-            features.append([br_id, java_file, rvsm, 1])
+            # features.append([br_id, java_file, rvsm, 1])
+
+            # for java_file, rvsm, cns in top_k_wrong_files(
+            #     br_files, br_raw_text, java_src_dict
+            # ):
+            #     features.append([br_id, java_file, rvsm, 0])
+
+
+            features.append([br_id, java_file, rvsm, cfs, cns, bfr, bff, 1])
 
             for java_file, rvsm, cns in top_k_wrong_files(
                 br_files, br_raw_text, java_src_dict
             ):
-                features.append([br_id, java_file, rvsm, 0])
+                features.append([br_id, java_file, rvsm, cfs, cns, bfr, bff, 0])
 
-        except:
-            # print(f"Error processing")
+
+        except Exception as e:
+            # print(f"Error processing {java_file}: {e}")
             pass  # Tiếp tục với file tiếp theo nếu gặp lỗi
 
     return features
@@ -87,10 +97,10 @@ def extract_features():
 
     # Read bug reports from tab separated file
     bug_reports = tsv2dict("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/bug reports/Tomcat.txt")
-    #print(bug_reports)
+    # print(bug_reports)
     # Read all java source files
     java_src_dict = get_all_source_code("/content/drive/MyDrive/GENAI/LLMS/bug-localization/all_data_buglocalization/source files/tomcat-7.0.51")
-    #print(java_src_dict)
+    # print(java_src_dict)
 
     # Use all CPUs except one to speed up extraction and avoid computer lagging
     batches = Parallel(n_jobs=cpu_count() - 1)(
