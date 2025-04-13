@@ -111,6 +111,10 @@ def extract_features():
                 "report_id",
                 "file",
                 "rVSM_similarity",
+                "collab_filter",
+                "classname_similarity",
+                "bug_recency",
+                "bug_frequency",
                 "match",
             ]
         )
